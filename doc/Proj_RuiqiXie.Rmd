@@ -1,0 +1,231 @@
+---
+title: "LyricsExploraryAnalysis"
+author: "Ruiqi-Xie"
+date: "2020/2/5"
+output:
+  html_document:
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+![](D:/pic1.jpg)
+I use lyrics_processed as the data of my analysis."lyrics_processed" is a procesed corpus of 380,000+ song lyrics. 
+
+Here, we explore these data sets and try to find interesting patterns.
+
+### load all the required libraries
+
++ `tidyverse` is an opinionated collection of R packages designed for data science. All packages share an underlying design philosophy, grammar, and data structures;
++ `tidytext` allows text mining using 'dplyr', 'ggplot2', and other tidy tools;
++ `plotly` allows plotting interactive graphs;
++ `DT` provides an R interface to the JavaScript library DataTables;
++ `tm` is a framework for text mining applications within R;
++ `scales` map data to aesthetics, and provide methods for automatically determining breaks and labels for axes and legends;
++ `data.table` is a package for fast aggregation of large data;
++ `wordcloud2` provides an HTML5 interface to wordcloud for data visualization;
++ `gridExtra` contains miscellaneous functions for "grid" graphics;
++ `ngram` is for constructing n-grams (“tokenizing”), as well as generating new text based on the n-gram structure of a given text input (“babbling”);
++ `Shiny` is an R package that makes it easy to build interactive web apps straight from R;
++ `data.table` is a package for fast aggregation of large data;
+
+```{r, message=FALSE, warning=FALSE}
+library("tidyverse")
+library("tidytext")
+library("plotly")
+library("DT")
+library("tm")
+library("data.table")
+library("scales")
+library("ngram")
+library("shiny")
+library("qdap")
+library("sentimentr")
+library("gplots")
+library("dplyr")
+library("tm")
+library("syuzhet")
+library("factoextra")
+library("beeswarm")
+library("scales")
+library("RColorBrewer")
+library("RANN")
+library("tm")
+library("topicmodels")
+```
+This notebook was prepared with the following environmental settings.
+
+```{r}
+print(R.version)
+```
+
+###Load the processed lyrics data.
+We use the processed lyrics data for analysis.
+
+```{r, eval = FALSE, message=FALSE, warning=FALSE}
+# load lyrics data
+#load('../output/lyrics_processed.RData')
+#dt_processed<-dt_processed%>%drop_na()
+```
+
+### Data discriptions.
+
+```{r}
+#dim(dt_processed)
+```
+
+The data has 125704 rows and 7 columns
+
+### Get the sentiment and number of lyrics of each song
+
+```{r}
+#below are processes I got data from lyrics
+#emotions=get_nrc_sentiment(dt_processed$lyrics)
+#word.count=word_count(dt_processed$lyrics)
+#lyrics.list=cbind(dt_processed,emotions,word.count)
+#save(lyrics.list, file="../output/lyrics_list.RData")
+
+#for convenience, I just load the data
+load("../output/lyrics_list.RData")
+```
+
+I first had a look at the trendence of all the motions along the years. 
+
+```{r,fig.height=7, fig.width=7}
+#summary the number of each sentiment in each year
+lyrics.list.time.emotions<-lyrics.list%>%
+  select(year,anger,anticipation,disgust,fear,joy,sadness,surprise,trust,negative,positive)%>%
+  group_by(year)%>%
+  summarise(anger=sum(anger),anticipation=sum(anticipation),
+            disgust=sum(disgust),fear=sum(fear),
+            joy=sum(joy),sadness=sum(sadness),surprise=sum(surprise),trust=sum(trust),
+            negative=sum(negative),positive=sum(positive))
+lyrics.list.time.emotions.ggplot<-lyrics.list.time.emotions%>%
+  pivot_longer(2:11,names_to='emotion.type',values_to = 'emotion.count')
+
+#plot
+ggplot(lyrics.list.time.emotions.ggplot%>%filter(year>1995))+
+  geom_line(aes(x=year,y=emotion.count,color=emotion.type))+
+  scale_color_discrete("Sum of emotions")+
+  labs(x='Year',y='Number of emotions',title='Emotions in lyrics each year')+
+  theme_light()+
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+
+```
+As the number before 2005 are very little,then I only had a look at words coun of lyrics along with the year 2003-2016
+
+```{r,fig.height=8, fig.width=7}
+lyrics.list.wordcount<-lyrics.list%>%
+  select(year,word.count)%>%
+  filter(year>=2003)%>%
+  mutate(year.new=paste('year',year))%>%
+  mutate(year.new=factor(year.new),
+         year.reorder=reorder(year.new,year,mean,order=T))
+#plot
+beeswarm(word.count ~ year.reorder, 
+         data = lyrics.list.wordcount,
+         horizontal = TRUE, 
+         pch = 16, col = alpha(brewer.pal(9, "Set1"), 0.6), 
+         cex = 0.5, cex.axis = 0.8, cex.lab = 0.8,
+         spacing = .5/nlevels(lyrics.list.wordcount$year.reorder),
+         las = 2, xlab = "Number of words in a song.", ylab = "",
+         main = "Songs in year 2003-2016")
+```
+
+Then I had a look at sentiments' distributions in each genere
+
+### I did a comparison using shinyapp, for simplier visualization, I first summarized the data
+
+preparation for visualization
+```{r}
+lyrics.genre<-lyrics.list%>%
+  select(genre,anger:positive)%>%
+  group_by(genre)%>%
+  summarise_if(is.numeric,mean)
+lyrics.genre.simplified<-lyrics.genre%>%
+  mutate(sum=anger+anticipation+disgust+fear+
+           joy+sadness+surprise+trust+negative+positive)%>%
+  arrange(desc(sum))
+lyrics.genre.simplified
+```
+
+according to the table, i choose hip-hop, metal and folk three genres to show their sentiment distribution
+
+```{r, message=FALSE, warning=FALSE}
+genre_list<-c('Hip-Hop','Metal','Folk')
+lyrics.genre.simplified<-lyrics.genre.simplified%>%
+  filter(genre %in% genre_list)%>%
+  select(1:11)
+```
+
+draw the rador plot with these three data
+
+```{r,fig.height=8, fig.width=7}
+min=min(lyrics.genre.simplified[2:11])
+max=max(lyrics.genre.simplified[2:11])
+plot_ly(
+  type = 'scatterpolar',
+  fill = 'toself'
+  ) %>%
+  add_trace(
+  r = as.numeric(lyrics.genre.simplified[1,2:11]),
+  theta=as.character(names(lyrics.genre.simplified[2:11])),
+  name = as.character(lyrics.genre.simplified$genre[1])
+  ) %>%
+  add_trace(
+  r = as.numeric(lyrics.genre.simplified[2,2:11]),
+  theta=as.character(names(lyrics.genre.simplified[2:11])),
+  name = as.character(lyrics.genre.simplified$genre[2])
+  ) %>%
+  add_trace(
+  r = as.numeric(lyrics.genre.simplified[3,2:11]),
+  theta=as.character(names(lyrics.genre.simplified[2:11])),
+  name = as.character(lyrics.genre.simplified$genre[3])
+  ) %>%
+  layout(
+    polar = list(
+      radialaxis = list(
+        visible = T,
+        range = c(min,max)
+      )
+    )
+  )
+
+```
+
+# cluster the generes
+according to the numbers of all the generes, I explored whether I can cluster the generes into a larger group.
+
+```{r,fig.height=8, fig.width=8}
+heatmap.2(cor(lyrics.list%>%filter(genre=="Hip-Hop")%>%select(anger:trust)), 
+          scale = "none", 
+          col = bluered(100), , margin=c(4,4), key=F,
+          trace = "none", density.info = "none")
+
+par(mar=c(4, 6, 2, 1))
+emo.means=colMeans(select(lyrics.list, anger:trust)>0.01)
+col.use=c("red2", "darkgoldenrod1", 
+            "chartreuse3", "blueviolet",
+            "darkgoldenrod2", "dodgerblue3", 
+            "darkgoldenrod1", "darkgoldenrod1")
+barplot(emo.means[order(emo.means)], las=2, col=col.use[order(emo.means)], horiz=T, main="Hip Hop")
+```
+
+
+```{r, fig.width = 6, fig.height = 6}
+lyrics.summary<-tbl_df(lyrics.list)%>%
+  group_by(genre)%>%
+  summarise_if(is.numeric,mean)%>%
+  select(-2,-3)
+lyrics.summary<-as.data.frame(lyrics.summary)
+rownames(lyrics.summary)=as.character((lyrics.summary[,1]))
+km.res=kmeans(lyrics.summary[,-1],iter.max=200,3)
+fviz_cluster(km.res,
+             stand=F,repel=TRUE,
+             data=lyrics.summary[,-1],xlab='',xaxt='n',
+             show.clust.cent = FALSE)+theme_light()
+```
+# reference
++ [A shorter tutorial](https://www.digitalocean.com/community/tutorials/how-to-work-with-language-data-in-python-3-using-the-natural-language-toolkit-nltk)
++ [Sentiment analysis](https://pythonspot.com/en/python-sentiment-analysis/)
++ [Topic modeling](https://medium.com/@aneesha/topic-modeling-with-scikit-learn-e80d33668730)

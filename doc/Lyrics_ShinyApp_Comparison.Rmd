@@ -1,0 +1,157 @@
+---
+title: "lyrics_comparison"
+author: "Ruiqi-Xie"
+date: "2020/2/5"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load libraries, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(tidytext)
+library(plotly)
+library(DT)
+library(tm)
+library(data.table)
+library(scales)
+library(wordcloud2)
+library(gridExtra)
+library(ngram)
+library(shiny) 
+```
+###I want to make an interface about the plot
+
+preparation for visualization
+```{r}
+genre_list <- c("Folk", "R&B", "Electronic", "Jazz", "Indie", "Country", "Rock", "Metal", "Pop", "Hip-Hop", "Other")
+year_list<-as.character(c(2003:2016))
+load("../output/lyrics_list.RData")
+
+```
+
+set user interface
+
+```{r, message=FALSE, warning=FALSE}
+ui <- navbarPage(strong("Lyrics Analysis"),
+      tabPanel("Time and Genre variation",
+      # Sidebar layout with input and output definitions ----
+      sidebarLayout(
+      # Sidebar panel for inputs ----
+      sidebarPanel(
+      selectInput('genre', 'Selected genre for the plot:', 
+                          genre_list, selected='Pop'),
+      selectInput('year', 'Selected year for the plot:', 
+                          year_list, selected='2003')
+      ),
+      # Main panel for displaying outputs ----
+      mainPanel(
+        plotlyOutput("radorgram"))
+          )
+      ),
+      tabPanel("Time and Genre variation Compariation",
+      # Sidebar layout with input and output definitions ----
+      sidebarLayout(
+      # Sidebar panel for inputs ----
+      sidebarPanel(
+      selectInput('genre1', 'Selected genre1 for the plot:', 
+                          genre_list, selected='Pop'),
+      selectInput('year1', 'Selected year1 for the plot:', 
+                          year_list, selected='2003'),
+      selectInput('genre2', 'Selected genre2 for the plot:', 
+                          genre_list, selected='Pop'),
+      selectInput('year2', 'Selected year2 for the plot:', 
+                          year_list, selected='2003')
+      ),
+      # Main panel for displaying outputs ----
+      mainPanel(
+        plotlyOutput("radorgram1")
+      
+          ))
+      ),
+      tabPanel("Data", 
+               DT::dataTableOutput("table"))
+)
+```
+
+### Develop the server for the R Shiny app
+This shiny app visualizes summary of data and displays the data table itself.
+
+# Define server logic required for ui ----
+
+```{r}
+server <- function(input, output) {
+  output$radorgram <- renderPlotly({
+    dt_sub<-lyrics.list%>%filter(genre==input$genre,
+                                 year==as.integer(input$year))%>%
+      select(8:17)
+    lyrics_sub<-dt_sub%>%colSums()
+    min<-min(lyrics_sub)
+    max<-max(lyrics_sub)
+    plot_ly(
+      type = 'scatterpolar',
+      r = as.vector(lyrics_sub),
+      theta = as.character(names(lyrics_sub)),
+      fill = 'toself') %>%
+      layout(
+        polar = list(
+          radialaxis = list(
+            visible = T,
+            range = c(min,max)
+            ) ),
+        showlegend = T)
+  })
+  output$radorgram1 <- renderPlotly({
+    dt_sub1<-lyrics.list%>%filter(genre==input$genre1,
+                                 year==as.integer(input$year1))%>%
+      select(8:17)
+    lyrics_sub1<-dt_sub1%>%colSums()
+    dt_sub2<-lyrics.list%>%filter(genre==input$genre2,
+                                 year==as.integer(input$year2))%>%
+      select(8:17)
+    lyrics_sub2<-dt_sub2%>%colSums()
+    min<-min(lyrics_sub1,lyrics_sub2)
+    max<-max(lyrics_sub1,lyrics_sub2)
+    plot_ly(
+      type = 'scatterpolar',
+      fill = 'toself'
+      ) %>%
+      add_trace(
+        r = as.vector(lyrics_sub1),
+        as.character(names(lyrics_sub1)),
+        theta = as.character(names(lyrics_sub1)),
+        name = 'compariasion A'
+        ) %>%
+      add_trace(
+        r = as.vector(lyrics_sub2),
+        as.character(names(lyrics_sub2)),
+        theta = as.character(names(lyrics_sub2)),
+        name = 'compariasion B'
+        ) %>%
+      layout(
+        polar = list(
+          radialaxis = list(
+            visible = T,
+            range = c(min,max)
+      )
+    )
+  )
+  })
+  output$table <- DT::renderDataTable({
+    DT::datatable(lyrics.list)
+  })
+}
+
+```
+
+# show the shinyApp
+
+```{r}
+shinyApp(ui, server)
+```
+
+
