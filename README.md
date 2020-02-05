@@ -13,6 +13,7 @@ Term: Spring 2020
 + This project is conducted by [Ruiqi Xie]
 
 + Project summary: [a short summary] In my project, I first get the sentiments of each song and saw their trendence with time. Then I had a look at the word counts of songs in different years. And lastly I chose three genres to make the comparison of their emotion propotions. During this process, I also created an interative server with shinyapp to compare different genere in different years. Finally I clustered the genres into smaller groups to see which of them have something in common.
+I can upload the output data, you can see it on https://github.com/Ruiqi-Xie/Data-for-ads-proj1
 
 Following [suggestions](http://nicercode.github.io/blog/2013-04-05-projects/) by [RICH FITZJOHN](http://nicercode.github.io/about/#Team) (@richfitz). This folder is orgarnized as follows.
 
